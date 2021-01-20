@@ -3,6 +3,8 @@
 *.ckpt
 *.old
 *.pyc
+.venv
+certs
 .DS_Store
 .ipynb_checkpoints
 checkpoint
