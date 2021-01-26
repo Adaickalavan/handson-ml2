@@ -65,6 +65,7 @@ RUN pip install -r requirements.txt
 #     && echo "export PATH=\"${workdir}/docker/bin:$PATH\"" >> ${home}/.bashrc \
 #     && sudo rm /tmp/bashrc.bash
 
+WORKDIR /src 
 SHELL ["/bin/bash", "-c", "-l"]
 
 # Build
@@ -72,6 +73,7 @@ SHELL ["/bin/bash", "-c", "-l"]
 
 # Run
 # $ docker run -it --gpus all --network=host --env DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix -v /home/kyber/workspaces/handson-ml2/code:/src handsonml2
+# $ source ./.venv/bin/activate
 
 # Disable screen access in the host via the command 
 # $ xhost +
