@@ -1,16 +1,15 @@
 import gym
 import pyvirtualdisplay
 import numpy as np
+import tensorflow as tf
+from tensorflow import keras
 
-env = gym.make("CartPole-v1")
-obs = env.reset()
-print(obs)
+# env = gym.make("CartPole-v1")
+# obs = env.reset()
+# print(obs)
 
 # action = 1
 # obs, reward, done, info = env.step(action)
-
-import tensorflow as tf
-from tensorflow import keras
 
 # n_inputs = 4 # == env.observation_space.shape[0]
 # model = keras.models.Sequential([
@@ -78,8 +77,6 @@ from tensorflow import keras
 # optimizer = keras.optimizers.Adam(lr=0.01)
 # loss_fn = keras.losses.binary_crossentropy
 
-import numpy as np
-
 # for iteration in range(n_iterations):
 #     all_rewards, all_grads = play_multiple_episodes(
 #         env, n_episodes_per_update, n_max_steps, model, loss_fn)
@@ -143,8 +140,59 @@ import numpy as np
 # print("======= ",Q_values)
 
 
-def step(state, action):
-    probas = transition_probabilities[state][action]
-    next_state = np.random.choice([0, 1, 2], p=probas)
-    reward = rewards[state][action][next_state]
-    return next_state, reward
+# def step(state, action):
+#     probas = transition_probabilities[state][action]
+#     next_state = np.random.choice([0, 1, 2], p=probas)
+#     reward = rewards[state][action][next_state]
+#     return next_state, reward
+
+# def exploration_policy(state):
+#     return np.random.choice(possible_actions[state])
+
+# alpha0 = 0.05 # initial learning rate
+# decay = 0.005 # learning rate decay
+# gamma = 0.90 # discount factor
+# state = 0 # initial state
+
+# for iteration in range(10000):
+#     action = exploration_policy(state)
+#     next_state, reward = step(state, action)
+#     next_value = np.max(Q_values[next_state])
+#     alpha = alpha0 / (1 + iteration * decay)
+#     Q_values[state, action] *= 1 - alpha
+#     Q_values[state, action] += alpha * (reward + gamma * next_value)
+#     state = next_state
+
+# print("+==============")
+# print(Q_values)
+
+
+env = gym.make("CartPole-v0")
+input_shape = [4] # == env.observation_space.shape
+n_outputs = 2 # == env.action_space.n
+model = keras.models.Sequential([
+    keras.layers.Dense(32, activation="elu", input_shape=input_shape),
+    keras.layers.Dense(32, activation="elu"),
+    keras.layers.Dense(n_outputs)
+])
+
+def epsilon_greedy_policy(state, epsilon=0):
+    if np.random.rand() < epsilon:
+        return np.random.randint(2)
+    else:
+        Q_values = model.predict(state[np.newaxis])
+        return np.argmax(Q_values[0])
+
+from collections import deque
+
+replay_buffer = deque(maxlen=2000)
+
+def sample_experiences(batch_size):
+    indices = np.random.randint(len(replay_buffer), size=batch_size)
+    batch = [replay_buffer[index] for index in indices]
+    states, actions, rewards, next_states, dones = [
+        np.array([experience[field_index] for experience in batch])
+        for field_index in range(5)]
+    return states, actions, rewards, next_states, dones
+
+
