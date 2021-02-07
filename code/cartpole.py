@@ -4,6 +4,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+np.random.seed(1)
+tf.compat.v1.set_random_seed(3)
+
 # env = gym.make("CartPole-v1")
 # obs = env.reset()
 # print(obs)
@@ -163,9 +166,8 @@ from tensorflow import keras
 #     Q_values[state, action] += alpha * (reward + gamma * next_value)
 #     state = next_state
 
-# print("+==============")
-# print(Q_values)
-
+print("==================================================================")
+#Implementing Deep Q-Learning
 
 env = gym.make("CartPole-v0")
 input_shape = [4] # == env.observation_space.shape
@@ -192,7 +194,43 @@ def sample_experiences(batch_size):
     batch = [replay_buffer[index] for index in indices]
     states, actions, rewards, next_states, dones = [
         np.array([experience[field_index] for experience in batch])
-        for field_index in range(5)]
+        for field_index in range(5)]    
     return states, actions, rewards, next_states, dones
 
+def play_one_step(env, state, epsilon):
+    action = epsilon_greedy_policy(state, epsilon)
+    next_state, reward, done, info = env.step(action)
+    replay_buffer.append((state, action, reward, next_state, done))
+    return next_state, reward, done, info
 
+batch_size = 2
+discount_factor = 0.95
+optimizer = keras.optimizers.Adam(lr=1e-3)
+loss_fn = keras.losses.mean_squared_error
+
+def training_step(batch_size):
+    experiences = sample_experiences(batch_size)
+    states, actions, rewards, next_states, dones = experiences
+    next_Q_values = model.predict(next_states)
+    max_next_Q_values = np.max(next_Q_values, axis=1)
+    target_Q_values = (rewards +
+                    (1 - dones) * discount_factor * max_next_Q_values)
+    mask = tf.one_hot(actions, n_outputs)
+    with tf.GradientTape() as tape:
+        all_Q_values = model(states)
+        Q_values = tf.reduce_sum(all_Q_values * mask, axis=1, keepdims=True)
+        loss = tf.reduce_mean(loss_fn(target_Q_values, Q_values))
+    grads = tape.gradient(loss, model.trainable_variables)
+    optimizer.apply_gradients(zip(grads, model.trainable_variables))
+
+for episode in range(600):
+    obs = env.reset()
+    for step in range(200):
+        epsilon = max(1 - episode / 500, 0.01)
+        obs, reward, done, info = play_one_step(env, obs, epsilon)
+        if done:
+            break
+    if episode > 50:
+        training_step(batch_size)
+
+print("============================================================")
