@@ -1,4 +1,7 @@
 #Implementing Deep Q-Learning
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+
 import gym
 import numpy as np
 import tensorflow as tf

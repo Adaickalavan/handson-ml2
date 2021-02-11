@@ -1,4 +1,11 @@
 #Implementing TF-Agent DQN
+import os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '1'
+
+import logging
+import numpy as np
+import tensorflow as tf
+from tensorflow import keras
 from tf_agents.environments import suite_gym
 from tf_agents.environments.wrappers import ActionRepeat
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
@@ -7,20 +14,17 @@ from tf_agents.agents.dqn.dqn_agent import DqnAgent
 from tf_agents.replay_buffers import tf_uniform_replay_buffer
 from tf_agents.metrics import tf_metrics
 from tf_agents.eval.metric_utils import log_metrics
-import logging
 from tf_agents.drivers.dynamic_step_driver import DynamicStepDriver
+from tf_agents.environments.wrappers import TimeLimit
 
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-
 tf.random.set_seed(42)
 np.random.seed(42)
 
-
-from tf_agents.environments.wrappers import TimeLimit
-
-env = suite_gym.load("Breakout-v0")
+env_name = "Breakout-v0"
+env = suite_gym.load(env-name)
 env.seed(42)
 env = TimeLimit(env, duration=150)
 
@@ -110,7 +114,7 @@ collect_driver = DynamicStepDriver(
 
 from tf_agents.policies.random_tf_policy import RandomTFPolicy
 initial_collect_policy = RandomTFPolicy(tf_env.time_step_spec(),
-tf_env.action_spec())
+    tf_env.action_spec())
 init_driver = DynamicStepDriver(
     tf_env,
     initial_collect_policy,
