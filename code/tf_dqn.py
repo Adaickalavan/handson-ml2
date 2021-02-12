@@ -7,9 +7,13 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
+physical_devices = tf.config.list_physical_devices('GPU')
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
 env = gym.make("CartPole-v0")
 input_shape = [4] # == env.observation_space.shape
 n_outputs = 2 # == env.action_space.n
+
 model = keras.models.Sequential([
     keras.layers.Dense(32, activation="elu", input_shape=input_shape),
     keras.layers.Dense(32, activation="elu"),
