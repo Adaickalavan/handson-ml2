@@ -19,6 +19,7 @@ RUN apt-get update --fix-missing && \
         python3.7 \
         python3.7-dev \
         python3.7-venv \
+        sudo \
         sumo \
         sumo-tools \
         sumo-doc \
@@ -33,39 +34,27 @@ RUN apt-get update --fix-missing && \
 # Update default python version
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
 
-RUN pip install -r requirements.txt
-
-# xvfbg xorg-dev 
-
-# COPY environment.yml /tmp/
-# RUN conda update -y -n base conda \
-#     && echo '    - pyvirtualdisplay' >> /tmp/environment.yml \
-#     && conda env create -f /tmp/environment.yml \
-#     && conda clean -y -t \
-#     && rm /tmp/environment.yml
-
-# ARG username
-# ARG userid
-
+# Setup user
+# ARG username=devel
+# ARG userid=1000
 # ARG home=/home/${username}
-# ARG workdir=${home}/handson-ml2
+# ARG workdir=${home}/src
 
 # RUN adduser ${username} --uid ${userid} --gecos '' --disabled-password \
 #     && echo "${username} ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/${username} \
 #     && chmod 0440 /etc/sudoers.d/${username}
 
+# ENV PATH /home/${username}/.local/bin:$PATH
+
 # WORKDIR ${workdir}
 # RUN chown ${username}:${username} ${workdir}
-
 # USER ${username}
-# WORKDIR ${workdir}
 
-# COPY docker/bashrc.bash /tmp/
-# RUN cat /tmp/bashrc.bash >> ${home}/.bashrc \
-#     && echo "export PATH=\"${workdir}/docker/bin:$PATH\"" >> ${home}/.bashrc \
-#     && sudo rm /tmp/bashrc.bash
+# Copy source files and install dependencies
+# COPY . ${workdir}
+# RUN pip install -r ${workdir}/requirements.txt
 
-WORKDIR /src 
+# Entrypoint
 SHELL ["/bin/bash", "-c", "-l"]
 
 # Build

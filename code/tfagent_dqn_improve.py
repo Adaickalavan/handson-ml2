@@ -7,6 +7,7 @@ import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
+import tf_agents
 from tf_agents.environments import suite_gym
 from tf_agents.environments.wrappers import ActionRepeat
 from tf_agents.environments.tf_py_environment import TFPyEnvironment
@@ -22,46 +23,44 @@ from tf_agents.environments.wrappers import TimeLimit
 physical_devices = tf.config.list_physical_devices('GPU')
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-
-def main(_): 
+def main(argv):
     tf.random.set_seed(42)
     np.random.seed(42)
 
-    env_name = "Breakout-v0"
+    env_name = "CartPole-v0"
     num_parallel_environments = 3
     tf_env = TFPyEnvironment(ParallelPyEnvironment([lambda: suite_gym.load(env_name)] * num_parallel_environments))
     tf_env = TimeLimit(tf_env, duration=150)
-    tf_env.seed(42)
     tf_env.reset()
 
     # Creating the Deep Q-Network
-    preprocessing_layer = keras.layers.Lambda(
-        lambda obs: tf.cast(obs, np.float32) / 255.)
+    # preprocessing_layer = keras.layers.Lambda(
+    #     lambda obs: tf.cast(obs, np.float32) / 255.)
 
-    conv_layer_params=[(32, (8, 8), 4), (64, (4, 4), 2), (64, (3, 3), 1)]
+    # conv_layer_params=[(32, (8, 8), 4), (64, (4, 4), 2), (64, (3, 3), 1)]
     fc_layer_params=[512]
 
     q_net = QNetwork(
         tf_env.observation_spec(),
         tf_env.action_spec(),
-        preprocessing_layers=preprocessing_layer,
-        conv_layer_params=conv_layer_params,
+        # preprocessing_layers=preprocessing_layer,
+        # conv_layer_params=conv_layer_params,
         fc_layer_params=fc_layer_params)
 
     # Creating the DQN Agent
     train_step = tf.Variable(0)
     update_period = 1 # train the model every 4 steps
 
-    optimizer = keras.optimizers.RMSprop(lr=2.5e-4, rho=0.95, momentum=0.0,
-        epsilon=0.00001, centered=True)
+    # optimizer = keras.optimizers.RMSprop(lr=2.5e-4, rho=0.95, momentum=0.0,
+    #     epsilon=0.00001, centered=True)
 
-    # learning_rate = 1e-3
-    # optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
+    learning_rate = 1e-3
+    optimizer = tf.compat.v1.train.AdamOptimizer(learning_rate=learning_rate)
 
 
     epsilon_fn = keras.optimizers.schedules.PolynomialDecay(
         initial_learning_rate=1.0, # initial ε
-        decay_steps=250000 // update_period, # <=> 1,000,000 ALE frames
+        decay_steps=250000 ,
         end_learning_rate=0.01) # final ε
 
     agent = DqnAgent(
@@ -69,7 +68,7 @@ def main(_):
         tf_env.action_spec(),
         q_network=q_net,
         optimizer=optimizer,
-        target_update_period=2000, # <=> 32,000 ALE frames
+        # target_update_period=2000, # <=> 32,000 ALE frames
         td_errors_loss_fn=keras.losses.Huber(reduction="none"),
         gamma=0.99, # discount factor
         train_step_counter=train_step,
@@ -102,8 +101,8 @@ def main(_):
         tf_metrics.AverageEpisodeLengthMetric(),
         ]
 
-    logging.getLogger().setLevel(logging.INFO)
-    log_metrics(train_metrics)
+    # logging.getLogger().setLevel(logging.INFO)
+    # log_metrics(train_metrics)
 
 
     # Creating the Collect Driver
@@ -127,11 +126,11 @@ def main(_):
 
 
     # Creating the Dataset
-    trajectories, buffer_info = replay_buffer.get_next(
-        sample_batch_size=4, num_steps=3)
+    # trajectories, buffer_info = replay_buffer.get_next(
+    #     sample_batch_size=4, num_steps=3)
 
     from tf_agents.trajectories.trajectory import to_transition
-    time_steps, action_steps, next_time_steps = to_transition(trajectories)
+    # time_steps, action_steps, next_time_steps = to_transition(trajectories)
 
     dataset = replay_buffer.as_dataset(
         sample_batch_size=64,
@@ -166,4 +165,4 @@ def main(_):
  
 
 if __name__ == '__main__':
-    app.run(main)
+    tf_agents.system.multiprocessing.handle_main(main,)
