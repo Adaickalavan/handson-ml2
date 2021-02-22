@@ -35,10 +35,11 @@ RUN apt-get update --fix-missing && \
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
 
 # Setup user
-# ARG username=devel
+# ARG username=siera
 # ARG userid=1000
 # ARG home=/home/${username}
 # ARG workdir=${home}/src
+ARG workdir=/src
 
 # RUN adduser ${username} --uid ${userid} --gecos '' --disabled-password \
 #     && echo "${username} ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/${username} \
@@ -46,7 +47,7 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.7 1
 
 # ENV PATH /home/${username}/.local/bin:$PATH
 
-# WORKDIR ${workdir}
+WORKDIR ${workdir}
 # RUN chown ${username}:${username} ${workdir}
 # USER ${username}
 
