@@ -29,22 +29,22 @@ from tf_agents.utils.common import function, Checkpointer
 def main(_):
     # Environment
     env_name = "Breakout-v4"
-    train_num_parallel_environments = 1
-    eval_num_parallel_environments = 1
+    train_num_parallel_environments=4
     max_steps_per_episode = 1000
     # Replay buffer
-    replay_buffer_capacity = 10000
-    init_replay_buffer = 2000
+    replay_buffer_capacity = 50000
+    init_replay_buffer = 500
     # Driver
     collect_steps_per_iteration = 1 * train_num_parallel_environments
     # Training
     train_batch_size = 32
     train_iterations = 100000
-    train_summary_interval=30
-    train_checkpoint_interval=30
+    train_summary_interval=200
+    train_checkpoint_interval=200
     # Evaluation
-    eval_summary_interval=40
-    eval_num_episodes=3
+    eval_num_parallel_environments=1
+    eval_summary_interval=500
+    eval_num_episodes=20
     # File paths
     path = pathlib.Path(__file__)
     parent_dir = path.parent.resolve()
@@ -72,33 +72,22 @@ def main(_):
     tf_env.reset()
 
     # Parallel evaluation environment
-    # eval_tf_env = TFPyEnvironment(
-    #                 ParallelPyEnvironment([
-    #                         lambda: suite_atari.load(
-    #                             env_name,
-    #                             env_wrappers=[
-    #                                 lambda env: TimeLimit(env, duration=max_steps_per_episode)
-    #                             ],
-    #                             gym_env_wrappers=[
-    #                                 AtariPreprocessing, FrameStack4
-    #                             ],
-    #                         )
-    #                     ]*eval_num_parallel_environments
-    #                 )
-    #             )
-    # eval_tf_env.seed([42]*eval_tf_env.batch_size)
-    # eval_tf_env.reset()
-
-    eval_py_env = suite_atari.load(
-                    env_name,
-                    env_wrappers=[
-                        lambda env: TimeLimit(env, duration=max_steps_per_episode)
-                    ],
-                    gym_env_wrappers=[
-                        AtariPreprocessing, FrameStack4
-                    ],
+    eval_tf_env = TFPyEnvironment(
+                    ParallelPyEnvironment([
+                            lambda: suite_atari.load(
+                                env_name,
+                                env_wrappers=[
+                                    lambda env: TimeLimit(env, duration=max_steps_per_episode)
+                                ],
+                                gym_env_wrappers=[
+                                    AtariPreprocessing, FrameStack4
+                                ],
+                            )
+                        ]*eval_num_parallel_environments
+                    )
                 )
-    eval_tf_env = TFPyEnvironment(eval_py_env)
+    eval_tf_env.seed([42]*eval_tf_env.batch_size)
+    eval_tf_env.reset()
 
     # Creating the Deep Q-Network
     preprocessing_layer = keras.layers.Lambda(
@@ -184,10 +173,10 @@ def main(_):
         num_parallel_calls=3).prefetch(3)
 
     # Optimize by wrapping some of the code in a graph using TF function.
-    # collect_driver.run = function(collect_driver.run)
-    # agent.train = function(agent.train)
+    collect_driver.run = function(collect_driver.run)
+    agent.train = function(agent.train)
 
-    print("\n\n++++++++++++++++++++++++++++++++++\n\n")
+    print("\n\n++++++++++++++++++++++++++++++++++\n")
 
     # Create checkpoint
     train_checkpointer = Checkpointer(
@@ -212,6 +201,15 @@ def main(_):
         tf_metrics.AverageEpisodeLengthMetric(batch_size=eval_tf_env.batch_size, buffer_size=eval_num_episodes)
     ]
 
+    # Create evaluate callback function
+    eval_callback = evaluate(
+        eval_metrics=eval_metrics,
+        eval_tf_env=eval_tf_env,
+        eval_policy=agent.policy,
+        eval_num_episodes=eval_num_episodes,
+        train_step=global_step,
+        eval_summary_writer=eval_summary_writer)
+
     # Train agent
     train_agent(
         tf_env=tf_env, 
@@ -226,7 +224,7 @@ def main(_):
         train_summary_writer=train_summary_writer, 
         train_summary_interval=train_summary_interval,
         eval_summary_interval=eval_summary_interval,
-        evaluate=evaluate)
+        eval_callback=eval_callback)
     
     print("\n\n++++++++++ END OF TF_AGENTS RL TRAINING ++++++++++\n\n")
 
@@ -243,7 +241,7 @@ def train_agent(
     train_summary_writer, 
     train_summary_interval,
     eval_summary_interval,
-    evaluate):
+    eval_callback):
 
     time_step = None
     policy_state = agent.collect_policy.get_initial_state(tf_env.batch_size)
@@ -268,10 +266,11 @@ def train_agent(
         # Checkpoint
         if global_step.numpy() % train_checkpoint_interval == 0:
             train_checkpointer.save(global_step=global_step.numpy())
+            print("\n")
 
         # Print training metrics
         if iteration % 100 == 0:
-            print(f"\n\rTraining iteration: {agent.train_step_counter.numpy()}, Loss:{train_loss.loss.numpy():.5f}", end="")
+            print(f"\rTraining iteration: {agent.train_step_counter.numpy()}, Loss:{train_loss.loss.numpy():.5f}", end="")
             metric_utils.log_metrics(train_metrics)
             print("\n")
 
@@ -288,19 +287,40 @@ def train_agent(
 
         # Evaluate the learned policy and network
         if global_step.numpy() % eval_summary_interval == 0 and global_step.numpy() > 0:
-            print(f"Global_step ========== {global_step.numpy()}")
-            print("8888888888888888888888888888888888888888888888")
-            evaluate()
-            print("8888888888888888888888888888888888888888888888")
+            print("Evaluating learned policy")
+            eval_callback()
+            print("\n")
 
     print("\n")
 
 # Evaluation
-def evaluate():
-    # metric_utils.eager_compute(
+def evaluate(
+        eval_metrics,
+        eval_tf_env,
+        eval_policy,
+        eval_num_episodes,
+        train_step,
+        eval_summary_writer):
 
-    # )
-    return
+    def compute():
+        results = metric_utils.eager_compute(
+            eval_metrics,
+            eval_tf_env,
+            eval_policy,
+            eval_num_episodes,
+            train_step,
+            eval_summary_writer,
+            'Metrics - Eval'
+        )
+        # result = metric_utils.compute(
+        #     eval_metrics, 
+        #     eval_tf_env,
+        #     eval_policy, 
+        #     eval_num_episodes
+        # )
+        metric_utils.log_metrics(eval_metrics)
+
+    return compute
 
 # Observer: Show progress
 class ShowProgress:
