@@ -56,7 +56,7 @@ simplejson==3.17.2
 spline==1.12
 sympy==1.7.1
 tblib==1.7.0
-tensorboard_plugin_profile==2.4.0
+tensorboard==2.4.1
 tornado==6.1
 tqdm==4.56.2
 unittest2==1.1.0
